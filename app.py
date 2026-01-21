@@ -5,13 +5,15 @@ import numpy as np
 # -------------------
 # ページ設定
 # -------------------
-st.set_page_config(page_title="老後資産シミュレーター（フル版）", layout="wide")
-st.title("老後資産シミュレーター（フル版）")
+st.set_page_config(page_title="老後資産シミュレーター（50歳スタート版）", layout="wide")
+st.title("老後資産シミュレーター（50歳スタート版）")
 
 # -------------------
 # 基本入力
 # -------------------
-age = st.number_input("現在の年齢", 40, 90, 65)
+start_age = 50
+st.write(f"シミュレーション開始年齢: {start_age}歳")
+age = start_age
 end_age = st.number_input("想定寿命", 70, 110, 90)
 assets = st.number_input("現在の資産（万円）", 0, 20000, 2000)
 monthly_cost = st.number_input("毎月の生活費（万円）", 0, 100, 20)
@@ -34,17 +36,19 @@ pension_start_age = st.number_input("年金受給開始年齢", age, end_age, 65
 # -------------------
 # 給与収入
 # -------------------
-salary_start_age = st.number_input("給与受給開始年齢", age, end_age, 65)
+salary_start_age = st.number_input("給与受給開始年齢", age, end_age, 50)
+retirement_age = st.number_input("退職年齢（給与終了）", salary_start_age, end_age, 65)
 annual_salary = st.number_input("給与収入（年間、万円）", 0, 3000, 300)
-# 在職老齢年金の減額パラメータ（簡易）
+# 在職老齢年金減額パラメータ（簡易）
 reduction_threshold = st.number_input("年金減額開始給与額（万円）", 0, 3000, 280)
 reduction_rate = st.number_input("年金減額率（％）", 0.0, 100.0, 50.0) / 100
 
 # -------------------
 # iDeCo / 個人年金
 # -------------------
-ideco_start_age = st.number_input("iDeCo拠出開始年齢", age, end_age, 65)
+ideco_start_age = st.number_input("iDeCo拠出開始年齢", age, end_age, 50)
 ideco_annual = st.number_input("iDeCo年間拠出額（万円）", 0, 500, 24)
+ideco_initial = st.number_input("iDeCo初期残高（万円）", 0, 2000, 0)
 ideco_return = st.number_input("iDeCo期待利回り（％）", 0.0, 10.0, 2.0)
 ideco_volatility = st.number_input("iDeCo利回りの変動幅（％）", 0.0, 10.0, 2.0)
 
@@ -59,7 +63,7 @@ if st.button("シミュレーション実行"):
         balance = assets
         history = []
         cost = monthly_cost * 12
-        ideco_balance = 0  # iDeCo専用残高
+        ideco_balance = ideco_initial
 
         for year in range(years):
             current_age = age + year
@@ -86,9 +90,8 @@ if st.button("シミュレーション実行"):
             # -------------------
             # 給与収入・在職老齢年金
             # -------------------
-            if current_age >= salary_start_age:
+            if salary_start_age <= current_age < retirement_age:
                 total_balance += annual_salary
-                # 在職老齢年金減額（簡易モデル）
                 pension_reduction = max(0, annual_salary - reduction_threshold) * reduction_rate
                 if current_age >= pension_start_age:
                     total_balance += annual_pension - pension_reduction
@@ -112,7 +115,7 @@ if st.button("シミュレーション実行"):
     # -------------------
     # 結果表示
     # -------------------
-    st.subheader("結果（フル版モンテカルロシミュレーション）")
+    st.subheader("結果（50歳スタート・フル版モンテカルロ）")
     st.write(f"最終残高の中央値：{int(median[-1])} 万円")
     st.write(f"10％下振れ時：{int(p10[-1])} 万円")
     st.write(f"90％上振れ時：{int(p90[-1])} 万円")
