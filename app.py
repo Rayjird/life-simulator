@@ -5,8 +5,8 @@ import numpy as np
 # -------------------
 # ページ設定
 # -------------------
-st.set_page_config(page_title="老後資産シミュレーター（簡易版）", layout="wide")
-st.title("老後資産シミュレーター（簡易版）")
+st.set_page_config(page_title="老後資産シミュレーター（給与・年金対応版）", layout="wide")
+st.title("老後資産シミュレーター（給与・年金対応版）")
 
 # -------------------
 # 基本入力
@@ -15,27 +15,33 @@ start_age = st.number_input("シミュレーション開始年齢", 40, 70, 50)
 end_age = st.number_input("想定寿命", 70, 110, 90)
 assets = st.number_input("現在の資産（万円）", 0, 20000, 2000)
 monthly_cost = st.number_input("毎月の生活費（万円）", 0, 100, 20)
+
+# -------------------
+# 給与・年金入力
+# -------------------
+annual_salary = st.number_input("給与収入（年間、万円）", 0, 3000, 300)
+retirement_age = st.number_input("退職年齢（給与終了）", start_age, end_age, 65)
+annual_pension = st.number_input("年金受給額（年間、万円）", 0, 500, 120)
+pension_start_age = st.number_input("年金受給開始年齢", start_age, end_age, 65)
+
+# -------------------
+# iDeCo入力
+# -------------------
 ideco_annual = st.number_input("iDeCo年間拠出額（万円）", 0, 500, 24)
 
 # -------------------
-# 運用条件（固定値で簡易化）
+# 運用条件（簡易固定）
 # -------------------
 annual_return = 3.0  # 運用利回り中央値％
 volatility = 2.0     # 年ごとのブレ％
 simulations = 1000
 
-# -------------------
-# シンプル年金・給与（固定値）
-# -------------------
-annual_pension = 120
-pension_start_age = 65
-
-# iDeCo期間固定
+# iDeCo期間自動設定
 ideco_start_age = start_age
-ideco_end_age = ideco_start_age + 20  # 例：20年積立
+ideco_end_age = ideco_start_age + 20  # 例：20年間積立
 
 # -------------------
-# シミュレーション
+# シミュレーション実行
 # -------------------
 if st.button("シミュレーション実行"):
     years = end_age - start_age
@@ -53,13 +59,21 @@ if st.button("シミュレーション実行"):
             current_age = start_age + year
 
             # -------------------
-            # 年金受給
+            # 給与収入
             # -------------------
             total_balance = balance
+            if start_age <= current_age < retirement_age:
+                total_balance += annual_salary
+
+            # -------------------
+            # 年金受給
+            # -------------------
             if current_age >= pension_start_age:
                 total_balance += annual_pension
 
+            # -------------------
             # 生活費
+            # -------------------
             total_balance -= cost
 
             # -------------------
@@ -68,10 +82,12 @@ if st.button("シミュレーション実行"):
             surplus = max(0, total_balance)
             nisa_balance += surplus
 
+            # -------------------
             # iDeCo拠出
+            # -------------------
             if ideco_start_age <= current_age <= ideco_end_age:
                 ideco_balance += ideco_annual
-                total_balance -= ideco_annual  # 拠出分を差し引く
+                total_balance -= ideco_annual
 
             # -------------------
             # 運用利回り（モンテカルロ）
@@ -85,14 +101,18 @@ if st.button("シミュレーション実行"):
             # NISA運用
             nisa_balance *= (1 + np.random.normal(annual_return, volatility)/100)
 
-            # iDeCo終了後はNISAから取り崩し
+            # -------------------
+            # iDeCo終了後はNISAから取り崩し（簡易モデル）
+            # -------------------
             if current_age > ideco_end_age:
                 needed = max(0, cost - balance)
                 withdrawal = min(needed, nisa_balance)
                 balance += withdrawal
                 nisa_balance -= withdrawal
 
+            # -------------------
             # 合計資産
+            # -------------------
             total_assets = balance + ideco_balance + nisa_balance
             history.append(total_assets)
 
@@ -110,7 +130,7 @@ if st.button("シミュレーション実行"):
     # -------------------
     # 結果表示
     # -------------------
-    st.subheader("結果（簡易版）")
+    st.subheader("結果")
     st.write(f"最終残高の中央値：{int(median[-1])} 万円")
     st.write(f"10％下振れ時：{int(p10[-1])} 万円")
     st.write(f"90％上振れ時：{int(p90[-1])} 万円")
@@ -128,7 +148,7 @@ if st.button("シミュレーション実行"):
     ax.fill_between(range(start_age, end_age), p10, p90, color='gray', alpha=0.3, label='10-90%範囲')
     ax.set_xlabel("年齢")
     ax.set_ylabel("資産（万円）")
-    ax.set_title("資産推移（iDeCo＋NISA＋生活費）")
+    ax.set_title("資産推移（給与・年金・iDeCo・NISA込み）")
     ax.grid(True)
     ax.legend()
     st.pyplot(fig)
