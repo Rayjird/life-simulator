@@ -91,6 +91,3 @@ if st.button("シミュレーション実行"):
     ax.legend()
 
     st.pyplot(fig=fig)
-
-    fig, ax = plt.subplots(figsize=(10,5))
-    ax.plot(range(age, end_age)_
