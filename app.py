@@ -2,7 +2,9 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import numpy as np
 
+# -------------------
 # ページ設定
+# -------------------
 st.set_page_config(page_title="老後資産シミュレーター（本格版）", layout="wide")
 st.title("老後資産シミュレーター（本格版）")
 
@@ -79,5 +81,16 @@ if st.button("シミュレーション実行"):
     # -------------------
     # グラフ表示
     # -------------------
+    fig, ax = plt.subplots(figsize=(10,5))
+    ax.plot(range(age, end_age), median, color='blue', label='中央値')
+    ax.fill_between(range(age, end_age), p10, p90, color='gray', alpha=0.3, label='10-90%範囲')
+    ax.set_xlabel("年齢")
+    ax.set_ylabel("資産（万円）")
+    ax.set_title("資産推移（年金・物価上昇・臨時支出込み）")
+    ax.grid(True)
+    ax.legend()
+
+    st.pyplot(fig=fig)
+
     fig, ax = plt.subplots(figsize=(10,5))
     ax.plot(range(age, end_age)_
