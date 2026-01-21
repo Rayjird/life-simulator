@@ -5,8 +5,8 @@ import numpy as np
 # -------------------
 # ページ設定
 # -------------------
-st.set_page_config(page_title="老後資産シミュレーター（iDeCo修正版）", layout="wide")
-st.title("老後資産シミュレーター（iDeCo修正版）")
+st.set_page_config(page_title="老後資産シミュレーター（iDeCo＋NISA版）", layout="wide")
+st.title("老後資産シミュレーター（iDeCo＋NISA版）")
 
 # -------------------
 # 基本入力
@@ -43,7 +43,7 @@ reduction_threshold = st.number_input("年金減額開始給与額（万円）",
 reduction_rate = st.number_input("年金減額率（％）", 0.0, 100.0, 50.0) / 100
 
 # -------------------
-# iDeCo / 個人年金
+# iDeCo / NISA
 # -------------------
 ideco_start_age = st.number_input("iDeCo拠出開始年齢", age, end_age, 50)
 ideco_end_age = st.number_input("iDeCo拠出終了年齢", ideco_start_age, end_age, 70)
@@ -51,6 +51,9 @@ ideco_annual = st.number_input("iDeCo年間拠出額（万円）", 0, 500, 24)
 ideco_initial = st.number_input("iDeCo初期残高（万円）", 0, 2000, 0)
 ideco_return = st.number_input("iDeCo期待利回り（％）", 0.0, 10.0, 2.0)
 ideco_volatility = st.number_input("iDeCo利回りの変動幅（％）", 0.0, 10.0, 2.0)
+
+nisa_return = st.number_input("NISA期待利回り（％）", 0.0, 10.0, 3.0)
+nisa_volatility = st.number_input("NISA利回りの変動幅（％）", 0.0, 10.0, 2.0)
 
 # -------------------
 # シミュレーション
@@ -60,10 +63,11 @@ if st.button("シミュレーション実行"):
     all_histories = []
 
     for _ in range(simulations):
-        balance = assets
+        balance = assets   # 現金資産（生活費・給与・年金の計算用）
         history = []
         cost = monthly_cost * 12
         ideco_balance = ideco_initial
+        nisa_balance = 0
 
         for year in range(years):
             current_age = age + year
@@ -90,10 +94,15 @@ if st.button("シミュレーション実行"):
             total_balance -= extra_cost
 
             # -------------------
-            # iDeCo拠出（年齢判定後）
+            # 余剰金をNISAに積立
             # -------------------
+            surplus = max(0, total_balance)
+            nisa_balance += surplus
+
+            # iDeCo拠出（年齢判定後）
             if ideco_start_age <= current_age <= ideco_end_age:
                 ideco_balance += ideco_annual
+                total_balance -= ideco_annual  # 拠出分は現金から差し引く
 
             # -------------------
             # 運用利回り（モンテカルロ） ※拠出後に反映
@@ -104,9 +113,20 @@ if st.button("シミュレーション実行"):
             # iDeCo運用
             ideco_balance = ideco_balance * (1 + np.random.normal(ideco_return, ideco_volatility)/100)
 
+            # NISA運用（余剰金積立分）
+            nisa_balance = nisa_balance * (1 + np.random.normal(nisa_return, nisa_volatility)/100)
+
+            # iDeCo終了後はNISAから取り崩し（生活費補填）※簡易モデル
+            if current_age > ideco_end_age:
+                # NISAから不足分を取り崩す
+                needed = max(0, cost + extra_cost - balance)
+                withdrawal = min(needed, nisa_balance)
+                balance += withdrawal
+                nisa_balance -= withdrawal
+
             # 合計残高
-            total_balance = balance + ideco_balance
-            history.append(total_balance)
+            total_assets = balance + ideco_balance + nisa_balance
+            history.append(total_assets)
 
         all_histories.append(history)
 
@@ -122,7 +142,7 @@ if st.button("シミュレーション実行"):
     # -------------------
     # 結果表示
     # -------------------
-    st.subheader("結果（iDeCo修正版）")
+    st.subheader("結果（iDeCo＋NISAモデル）")
     st.write(f"最終残高の中央値：{int(median[-1])} 万円")
     st.write(f"10％下振れ時：{int(p10[-1])} 万円")
     st.write(f"90％上振れ時：{int(p90[-1])} 万円")
@@ -140,9 +160,8 @@ if st.button("シミュレーション実行"):
     ax.fill_between(range(age, end_age), p10, p90, color='gray', alpha=0.3, label='10-90%範囲')
     ax.set_xlabel("年齢")
     ax.set_ylabel("資産（万円）")
-    ax.set_title("資産推移（給与・年金・iDeCo・生活費込み）")
+    ax.set_title("資産推移（給与・年金・iDeCo・NISA・生活費込み）")
     ax.grid(True)
     ax.legend()
 
     st.pyplot(fig=fig)
-
