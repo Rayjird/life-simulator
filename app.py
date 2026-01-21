@@ -5,8 +5,8 @@ import numpy as np
 # -------------------
 # ページ設定
 # -------------------
-st.set_page_config(page_title="老後資産シミュレーター（50歳スタート版）", layout="wide")
-st.title("老後資産シミュレーター（50歳スタート版）")
+st.set_page_config(page_title="老後資産シミュレーター（iDeCo修正版）", layout="wide")
+st.title("老後資産シミュレーター（iDeCo修正版）")
 
 # -------------------
 # 基本入力
@@ -39,7 +39,6 @@ pension_start_age = st.number_input("年金受給開始年齢", age, end_age, 65
 salary_start_age = st.number_input("給与受給開始年齢", age, end_age, 50)
 retirement_age = st.number_input("退職年齢（給与終了）", salary_start_age, end_age, 65)
 annual_salary = st.number_input("給与収入（年間、万円）", 0, 3000, 300)
-# 在職老齢年金減額パラメータ（簡易）
 reduction_threshold = st.number_input("年金減額開始給与額（万円）", 0, 3000, 280)
 reduction_rate = st.number_input("年金減額率（％）", 0.0, 100.0, 50.0) / 100
 
@@ -47,6 +46,7 @@ reduction_rate = st.number_input("年金減額率（％）", 0.0, 100.0, 50.0) /
 # iDeCo / 個人年金
 # -------------------
 ideco_start_age = st.number_input("iDeCo拠出開始年齢", age, end_age, 50)
+ideco_end_age = st.number_input("iDeCo拠出終了年齢", ideco_start_age, end_age, 70)
 ideco_annual = st.number_input("iDeCo年間拠出額（万円）", 0, 500, 24)
 ideco_initial = st.number_input("iDeCo初期残高（万円）", 0, 2000, 0)
 ideco_return = st.number_input("iDeCo期待利回り（％）", 0.0, 10.0, 2.0)
@@ -69,36 +69,43 @@ if st.button("シミュレーション実行"):
             current_age = age + year
 
             # -------------------
-            # 運用利回り（モンテカルロ）
+            # 給与・年金・生活費・臨時支出
             # -------------------
-            rand_return = np.random.normal(annual_return, volatility) / 100
-            balance = balance * (1 + rand_return)
+            total_balance = balance
 
-            # iDeCo運用
-            if current_age >= ideco_start_age:
-                ideco_balance = ideco_balance * (1 + np.random.normal(ideco_return, ideco_volatility)/100)
-                ideco_balance += ideco_annual
-            total_balance = balance + ideco_balance
+            # 給与収入
+            if salary_start_age <= current_age < retirement_age:
+                total_balance += annual_salary
 
-            # -------------------
-            # 生活費・物価上昇・臨時支出
-            # -------------------
+            # 年金（在職老齢年金減額）
+            if current_age >= pension_start_age:
+                pension_reduction = 0
+                if salary_start_age <= current_age < retirement_age:
+                    pension_reduction = max(0, annual_salary - reduction_threshold) * reduction_rate
+                total_balance += max(0, annual_pension - pension_reduction)
+
+            # 生活費・臨時支出
             cost = cost * (1 + inflation / 100)
             total_balance -= cost
             total_balance -= extra_cost
 
             # -------------------
-            # 給与収入・在職老齢年金
+            # iDeCo拠出（年齢判定後）
             # -------------------
-            if salary_start_age <= current_age < retirement_age:
-                total_balance += annual_salary
-                pension_reduction = max(0, annual_salary - reduction_threshold) * reduction_rate
-                if current_age >= pension_start_age:
-                    total_balance += annual_pension - pension_reduction
-            else:
-                if current_age >= pension_start_age:
-                    total_balance += annual_pension
+            if ideco_start_age <= current_age <= ideco_end_age:
+                ideco_balance += ideco_annual
 
+            # -------------------
+            # 運用利回り（モンテカルロ） ※拠出後に反映
+            # -------------------
+            rand_return = np.random.normal(annual_return, volatility) / 100
+            balance = total_balance * (1 + rand_return)
+
+            # iDeCo運用
+            ideco_balance = ideco_balance * (1 + np.random.normal(ideco_return, ideco_volatility)/100)
+
+            # 合計残高
+            total_balance = balance + ideco_balance
             history.append(total_balance)
 
         all_histories.append(history)
@@ -115,7 +122,7 @@ if st.button("シミュレーション実行"):
     # -------------------
     # 結果表示
     # -------------------
-    st.subheader("結果（50歳スタート・フル版モンテカルロ）")
+    st.subheader("結果（iDeCo修正版）")
     st.write(f"最終残高の中央値：{int(median[-1])} 万円")
     st.write(f"10％下振れ時：{int(p10[-1])} 万円")
     st.write(f"90％上振れ時：{int(p90[-1])} 万円")
@@ -138,3 +145,4 @@ if st.button("シミュレーション実行"):
     ax.legend()
 
     st.pyplot(fig=fig)
+
