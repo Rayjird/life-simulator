@@ -1,3 +1,4 @@
+import streamlit as st
 st.set_page_config(
     page_title="老後資産シミュレーター（給与・年金対応版）",
     page_icon="💰",
@@ -6,7 +7,7 @@ st.set_page_config(
         'About': "![看板](https://raw.githubusercontent.com/Rayjird/life-simulator/main/thumbnail.png)"
     }
 )
-import streamlit as st
+
 import matplotlib.pyplot as plt
 import numpy as np
 
